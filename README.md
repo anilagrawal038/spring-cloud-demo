@@ -10,11 +10,11 @@
     
     
 ## app-discovery
-   Its a Spring Cloud Eureka (Discovery) Server. It provides a way for all servers to be able to find each other. This server should be known to all other servuces. All services will register it self to discovery server and can find other services using discovery server.<br/><br/>
+   Its a Spring Cloud Eureka (Discovery) Server. It provides a way for all servers to be able to find each other. This server should be known to all other services. All services will register it self to discovery server and can find other services using discovery server.<br/><br/>
     
     
 ## app-gateway
-   Its a Gateway server. This will act as a reverse proxy shuttling requests from clients to our back end servers. In this demo, we will route requests to app-service1 and app-service2 through gateway server.<br/><br/>
+   Its a Gateway server. It will act as a reverse proxy shuttling requests from clients to our back end servers. In this demo, we will route requests to app-service1 and app-service2 through gateway server.<br/><br/>
     
     
 ## app-service1
