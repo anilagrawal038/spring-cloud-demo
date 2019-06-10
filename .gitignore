@@ -1,0 +1,46 @@
+# Target Files
+/app-config/target
+/app-discovery/target
+/app-gateway/target
+/app-service1/target
+/app-service2/target
+
+# logs
+/app-config/logs
+/app-discovery/logs
+/app-gateway/logs
+/app-service1/logs
+/app-service2/logs
+
+/docs
+
+# Eclipse related files
+/app-config/.classpath
+/app-config/.project
+/app-config/.settings
+/app-config/.factorypath
+/app-config/.history
+
+/app-discovery/.classpath
+/app-discovery/.project
+/app-discovery/.settings
+/app-discovery/.factorypath
+/app-discovery/.history
+
+/app-gateway/.classpath
+/app-gateway/.project
+/app-gateway/.settings
+/app-gateway/.factorypath
+/app-gateway/.history
+
+/app-service1/.classpath
+/app-service1/.project
+/app-service1/.settings
+/app-service1/.factorypath
+/app-service1/.history
+
+/app-service2/.classpath
+/app-service2/.project
+/app-service2/.settings
+/app-service2/.factorypath
+/app-service2/.history
