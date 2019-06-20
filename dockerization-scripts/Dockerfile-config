@@ -1,0 +1,9 @@
+FROM openjdk:8-jdk-alpine
+ARG APP_JAR_FILE
+ARG APP_CONFIG_REPO
+RUN mkdir -p /app
+COPY ${APP_JAR_FILE} /app/app.jar
+COPY ${APP_CONFIG_REPO} /app-config-repo
+ENV CONFIG_SERVICE_REPO_PATH=file:///app-config-repo
+WORKDIR /app
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

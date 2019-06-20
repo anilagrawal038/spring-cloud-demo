@@ -1,0 +1,674 @@
+
+	{
+		"apiVersion" : "v1",
+		"kind" : "Namespace",
+		"metadata" : {
+			"name" : "app-namespace"
+		}
+	}
+	{
+		"apiVersion" : "v1",
+		"kind" : "PersistentVolume",
+		"metadata" : {
+			"name" : "app-storage-volume",
+			"namespace" : "app-namespace"
+		},
+		"spec" : {
+			"storageClassName" : "manual",
+			"capacity" : {
+				"storage" : "2Gi"
+			},
+			"hostPath" : {
+				"path" : "/mnt/data"
+			},
+			"accessModes" : ["ReadWriteMany"]
+		}
+	}
+	{
+		"apiVersion" : "v1",
+		"kind" : "PersistentVolumeClaim",
+		"metadata" : {
+			"name" : "app-storage-volume-claim",
+			"namespace" : "app-namespace"
+		},
+		"spec" : {
+			"storageClassName" : "manual",
+			"resources" : {
+				"requests" : {
+					"storage" : "2Gi"
+				}
+			},
+			"accessModes" : ["ReadWriteMany"]
+		}
+	}
+	
+	{
+		"apiVersion" : "extensions/v1beta1",
+		"kind" : "Deployment",
+		"metadata" : {
+			"name" : "app-config-deployment",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"platform" : "java",
+				"release" : "1.0"
+			}
+		},
+		"spec" : {
+			"replicas" : 1,
+			"template" : {
+				"metadata" : {
+					"labels" : {
+						"app" : "app-config"
+					},
+					"name" : "app-config-template"
+				},
+				"spec" : {
+					"containers" : [
+						{
+							"name" : "app-config",
+							"image" : "app-config",
+							"imagePullPolicy" : "Never",
+							"tty" : true,
+							"ports" : [
+								{
+									"name" : "config-port",
+									"containerPort" : 8081
+								}
+							],
+							"resources" : {
+								"limits" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								},
+								"requests" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								}
+							},
+							"volumeMounts" : [
+								{
+									"name" : "app-storage",
+									"mountPath" : "/usr/local/APPStorage"
+								}
+							],
+							"readinessProbe" : {
+								"httpGet" : {
+									"path" : "/actuator/info",
+									"port" : "config-port"
+								}
+							},
+							"env" : [
+								{
+									"name" : "CONFIG_SERVICE_PORT",
+									"value" : "8081"
+								},
+								{
+									"name" : "CONFIG_SERVICE_USERNAME",
+									"value" : "user"
+								},
+								{
+									"name" : "CONFIG_SERVICE_PASSWORD",
+									"value" : "admin"
+								},
+								{
+									"name" : "CONFIG_SERVICE_REPO_PATH",
+									"value" : "file:///app-config-repo"
+								},
+								{
+									"name" : "DISCOVERY_SERVICE_URL",
+									"value" : "http://$(APP_DISCOVERY_SERVICE_SERVICE_HOST):$(APP_DISCOVERY_SERVICE_SERVICE_PORT)/eureka"
+								},
+								{
+									"name" : "EXPOSED_CONFIG_HOST",
+									"value" : "app-config-service"
+								},
+								{
+									"name" : "EXPOSED_CONFIG_PORT",
+									"value" : "$(APP_CONFIG_SERVICE_SERVICE_PORT)"
+								}
+							]
+						}
+					],
+					"initContainers" : [
+						{
+							"name" : "app-config-init",
+							"image" : "busybox:1.27",
+							"command" : ["sh", "-c", "until nslookup app-discovery-service; do echo waiting for app-discovery-service; sleep 2; done;"]
+						}
+					],
+					"volumes" : [
+						{
+							"name" : "app-storage",
+							"persistentVolumeClaim" : {
+								"claimName" : "app-storage-volume-claim"
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+	{
+		"apiVersion" : "v1",
+		"kind" : "Service",
+		"metadata" : {
+			"name" : "app-config-service",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"app" : "app-config"
+			}
+		},
+		"spec" : {
+			"type" : "NodePort",
+			"selector" : {
+				"app" : "app-config"
+			},
+			"ports" : [
+				{
+					"name" : "app-config-service-port",
+					"nodePort" : 30501,
+					"port" : 9091,
+					"protocol" : "TCP",
+					"targetPort" : "config-port"
+				}
+			]
+		}
+	}
+	
+	{
+		"apiVersion" : "extensions/v1beta1",
+		"kind" : "Deployment",
+		"metadata" : {
+			"name" : "app-discovery-deployment",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"platform" : "java",
+				"release" : "1.0"
+			}
+		},
+		"spec" : {
+			"replicas" : 1,
+			"template" : {
+				"metadata" : {
+					"labels" : {
+						"app" : "app-discovery"
+					},
+					"name" : "app-discovery-template"
+				},
+				"spec" : {
+					"containers" : [
+						{
+							"name" : "app-discovery",
+							"image" : "app-discovery",
+							"imagePullPolicy" : "Never",
+							"tty" : true,
+							"ports" : [
+								{
+									"name" : "discovery-port",
+									"containerPort" : 8082
+								}
+							],
+							"resources" : {
+								"limits" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								},
+								"requests" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								}
+							},
+							"volumeMounts" : [
+								{
+									"name" : "app-storage",
+									"mountPath" : "/usr/local/APPStorage"
+								}
+							],
+							"readinessProbe" : {
+								"httpGet" : {
+									"path" : "/actuator/info",
+									"port" : "discovery-port"
+								}
+							},
+							"env" : [
+								{
+									"name" : "DISCOVERY_SERVICE_PORT",
+									"value" : "8082"
+								},
+								{
+									"name" : "DISCOVERY_SERVICE_HOST",
+									"value" : "localhost"
+								},
+								{
+									"name" : "DISCOVERY_SERVICE_URL",
+									"value" : "http://$(DISCOVERY_SERVICE_HOST):$(DISCOVERY_SERVICE_PORT)/eureka"
+								}
+							]
+						}
+					],
+					"volumes" : [
+						{
+							"name" : "app-storage",
+							"persistentVolumeClaim" : {
+								"claimName" : "app-storage-volume-claim"
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+	{
+		"apiVersion" : "v1",
+		"kind" : "Service",
+		"metadata" : {
+			"name" : "app-discovery-service",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"app" : "app-discovery"
+			}
+		},
+		"spec" : {
+			"type" : "NodePort",
+			"selector" : {
+				"app" : "app-discovery"
+			},
+			"ports" : [
+				{
+					"name" : "app-discovery-service-port",
+					"nodePort" : 30502,
+					"port" : 9092,
+					"protocol" : "TCP",
+					"targetPort" : "discovery-port"
+				}
+			]
+		}
+	}
+	
+	{
+		"apiVersion" : "extensions/v1beta1",
+		"kind" : "Deployment",
+		"metadata" : {
+			"name" : "app-gateway-deployment",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"platform" : "java",
+				"release" : "1.0"
+			}
+		},
+		"spec" : {
+			"replicas" : 1,
+			"template" : {
+				"metadata" : {
+					"labels" : {
+						"app" : "app-gateway"
+					},
+					"name" : "app-gateway-template"
+				},
+				"spec" : {
+					"containers" : [
+						{
+							"name" : "app-gateway",
+							"image" : "app-gateway",
+							"imagePullPolicy" : "Never",
+							"tty" : true,
+							"ports" : [
+								{
+									"name" : "gateway-port",
+									"containerPort" : 8080
+								}
+							],
+							"resources" : {
+								"limits" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								},
+								"requests" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								}
+							},
+							"volumeMounts" : [
+								{
+									"name" : "app-storage",
+									"mountPath" : "/usr/local/APPStorage"
+								}
+							],
+							"readinessProbe" : {
+								"httpGet" : {
+									"path" : "/actuator/info",
+									"port" : "gateway-port"
+								}
+							},
+							"env" : [
+								{
+									"name" : "GATEWAY_SERVICE_PORT",
+									"value" : "8080"
+								},
+								{
+									"name" : "CONFIG_SERVICE_USERNAME",
+									"value" : "user"
+								},
+								{
+									"name" : "CONFIG_SERVICE_PASSWORD",
+									"value" : "admin"
+								},
+								{
+									"name" : "DISCOVERY_SERVICE_URL",
+									"value" : "http://$(APP_DISCOVERY_SERVICE_SERVICE_HOST):$(APP_DISCOVERY_SERVICE_SERVICE_PORT)/eureka"
+								},
+								{
+									"name" : "EXPOSED_GATEWAY_HOST",
+									"value" : "app-gateway-service"
+								},
+								{
+									"name" : "EXPOSED_GATEWAY_PORT",
+									"value" : "$(APP_GATEWAY_SERVICE_SERVICE_PORT)"
+								}
+							]
+						}
+					],
+					"initContainers" : [
+						{
+							"name" : "app-gateway-init",
+							"image" : "busybox:1.27",
+							"command" : ["sh", "-c", "until nslookup app-config-service; do echo waiting for app-config-service; sleep 2; done;"]
+						}
+					],
+					"volumes" : [
+						{
+							"name" : "app-storage",
+							"persistentVolumeClaim" : {
+								"claimName" : "app-storage-volume-claim"
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+	{
+		"apiVersion" : "v1",
+		"kind" : "Service",
+		"metadata" : {
+			"name" : "app-gateway-service",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"app" : "app-gateway"
+			}
+		},
+		"spec" : {
+			"type" : "NodePort",
+			"selector" : {
+				"app" : "app-gateway"
+			},
+			"ports" : [
+				{
+					"name" : "app-gateway-service-port",
+					"nodePort" : 30500,
+					"port" : 9090,
+					"protocol" : "TCP",
+					"targetPort" : "gateway-port"
+				}
+			]
+		}
+	}
+	
+	{
+		"apiVersion" : "extensions/v1beta1",
+		"kind" : "Deployment",
+		"metadata" : {
+			"name" : "app-service1-deployment",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"platform" : "java",
+				"release" : "1.0"
+			}
+		},
+		"spec" : {
+			"replicas" : 1,
+			"template" : {
+				"metadata" : {
+					"labels" : {
+						"app" : "app-service1"
+					},
+					"name" : "app-service1-template"
+				},
+				"spec" : {
+					"containers" : [
+						{
+							"name" : "app-service1",
+							"image" : "app-service1",
+							"imagePullPolicy" : "Never",
+							"tty" : true,
+							"ports" : [
+								{
+									"name" : "service1-port",
+									"containerPort" : 8083
+								}
+							],
+							"resources" : {
+								"limits" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								},
+								"requests" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								}
+							},
+							"volumeMounts" : [
+								{
+									"name" : "app-storage",
+									"mountPath" : "/usr/local/APPStorage"
+								}
+							],
+							"readinessProbe" : {
+								"httpGet" : {
+									"path" : "/actuator/info",
+									"port" : "service1-port"
+								}
+							},
+							"env" : [
+								{
+									"name" : "SERVICE1_SERVICE_PORT",
+									"value" : "8083"
+								},
+								{
+									"name" : "CONFIG_SERVICE_USERNAME",
+									"value" : "user"
+								},
+								{
+									"name" : "CONFIG_SERVICE_PASSWORD",
+									"value" : "admin"
+								},
+								{
+									"name" : "DISCOVERY_SERVICE_URL",
+									"value" : "http://$(APP_DISCOVERY_SERVICE_SERVICE_HOST):$(APP_DISCOVERY_SERVICE_SERVICE_PORT)/eureka"
+								},
+								{
+									"name" : "EXPOSED_SERVICE1_HOST",
+									"value" : "app-service1-service"
+								},
+								{
+									"name" : "EXPOSED_SERVICE1_PORT",
+									"value" : "$(APP_SERVICE1_SERVICE_SERVICE_PORT)"
+								}
+							]
+						}
+					],
+					"initContainers" : [
+						{
+							"name" : "app-service1-init",
+							"image" : "busybox:1.27",
+							"command" : ["sh", "-c", "until nslookup app-config-service; do echo waiting for app-config-service; sleep 2; done;"]
+						}
+					],
+					"volumes" : [
+						{
+							"name" : "app-storage",
+							"persistentVolumeClaim" : {
+								"claimName" : "app-storage-volume-claim"
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+	{
+		"apiVersion" : "v1",
+		"kind" : "Service",
+		"metadata" : {
+			"name" : "app-service1-service",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"app" : "app-service1"
+			}
+		},
+		"spec" : {
+			"type" : "NodePort",
+			"selector" : {
+				"app" : "app-service1"
+			},
+			"ports" : [
+				{
+					"name" : "app-service1-service-port",
+					"nodePort" : 30503,
+					"port" : 9093,
+					"protocol" : "TCP",
+					"targetPort" : "service1-port"
+				}
+			]
+		}
+	}
+	
+	{
+		"apiVersion" : "extensions/v1beta1",
+		"kind" : "Deployment",
+		"metadata" : {
+			"name" : "app-service2-deployment",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"platform" : "java",
+				"release" : "1.0"
+			}
+		},
+		"spec" : {
+			"replicas" : 1,
+			"template" : {
+				"metadata" : {
+					"labels" : {
+						"app" : "app-service2"
+					},
+					"name" : "app-service2-template"
+				},
+				"spec" : {
+					"containers" : [
+						{
+							"name" : "app-service2",
+							"image" : "app-service2",
+							"imagePullPolicy" : "Never",
+							"tty" : true,
+							"ports" : [
+								{
+									"name" : "service2-port",
+									"containerPort" : 8084
+								}
+							],
+							"resources" : {
+								"limits" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								},
+								"requests" : {
+									"cpu" : "1",
+									"memory" : "256Mi"
+								}
+							},
+							"volumeMounts" : [
+								{
+									"name" : "app-storage",
+									"mountPath" : "/usr/local/APPStorage"
+								}
+							],
+							"readinessProbe" : {
+								"httpGet" : {
+									"path" : "/actuator/info",
+									"port" : "service2-port"
+								}
+							},
+							"env" : [
+								{
+									"name" : "SERVICE2_SERVICE_PORT",
+									"value" : "8084"
+								},
+								{
+									"name" : "CONFIG_SERVICE_USERNAME",
+									"value" : "user"
+								},
+								{
+									"name" : "CONFIG_SERVICE_PASSWORD",
+									"value" : "admin"
+								},
+								{
+									"name" : "DISCOVERY_SERVICE_URL",
+									"value" : "http://$(APP_DISCOVERY_SERVICE_SERVICE_HOST):$(APP_DISCOVERY_SERVICE_SERVICE_PORT)/eureka"
+								},
+								{
+									"name" : "EXPOSED_SERVICE2_HOST",
+									"value" : "app-service2-service"
+								},
+								{
+									"name" : "EXPOSED_SERVICE2_PORT",
+									"value" : "$(APP_SERVICE2_SERVICE_SERVICE_PORT)"
+								}
+							]
+						}
+					],
+					"initContainers" : [
+						{
+							"name" : "app-service2-init",
+							"image" : "busybox:1.27",
+							"command" : ["sh", "-c", "until nslookup app-config-service; do echo waiting for app-config-service; sleep 2; done;"]
+						}
+					],
+					"volumes" : [
+						{
+							"name" : "app-storage",
+							"persistentVolumeClaim" : {
+								"claimName" : "app-storage-volume-claim"
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+	{
+		"apiVersion" : "v1",
+		"kind" : "Service",
+		"metadata" : {
+			"name" : "app-service2-service",
+			"namespace" : "app-namespace",
+			"labels" : {
+				"app" : "app-service2"
+			}
+		},
+		"spec" : {
+			"type" : "NodePort",
+			"selector" : {
+				"app" : "app-service2"
+			},
+			"ports" : [
+				{
+					"name" : "app-service2-service-port",
+					"nodePort" : 30504,
+					"port" : 9094,
+					"protocol" : "TCP",
+					"targetPort" : "service2-port"
+				}
+			]
+		}
+	}
+	

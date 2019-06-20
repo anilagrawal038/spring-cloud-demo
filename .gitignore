@@ -4,6 +4,7 @@
 /app-gateway/target
 /app-service1/target
 /app-service2/target
+/dockerization-scripts/resources
 
 # logs
 /app-config/logs
